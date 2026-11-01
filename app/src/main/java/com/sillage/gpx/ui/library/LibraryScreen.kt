@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
@@ -261,7 +262,10 @@ private fun RecordingBanner(rec: RecordingSnapshot, onClick: () -> Unit) {
 @Composable
 private fun Header(vm: AppViewModel) {
     Column(Modifier.padding(horizontal = 4.dp)) {
-        Text("Sillage", style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.onSurface)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Sillage", Modifier.weight(1f), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.onSurface)
+            GlassIconButton(Icons.Rounded.CloudDownload, "Cartes hors ligne", onClick = vm::openOfflineMaps, size = 52.dp)
+        }
         val total = vm.entries.sumOf { it.stats.distanceM }
         val subtitle = when {
             vm.libraryLoading -> "Chargement…"

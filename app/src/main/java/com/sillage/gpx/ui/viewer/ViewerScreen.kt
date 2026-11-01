@@ -227,6 +227,7 @@ fun ViewerScreen(
                 doc = doc,
                 controller = map,
                 style = vm.mapStyle,
+                offlineFiles = vm.offlineFiles,
                 modifier = Modifier.fillMaxSize().glassSource(backdrop),
                 edit = MapEditState(
                     editMode = vm.editing,
@@ -277,6 +278,7 @@ fun ViewerScreen(
                             onBack = ::back,
                             onTitle = { panelExpanded = !panelExpanded },
                             onStyle = vm::changeMapStyle,
+                            onOfflineMaps = vm::openOfflineMaps,
                             onEdit = vm::startEditing,
                             onRename = { renameFile = true },
                             onInfo = { showMeta = true },
@@ -524,6 +526,7 @@ private fun ViewTopBar(
     onBack: () -> Unit,
     onTitle: () -> Unit,
     onStyle: (MapStyle) -> Unit,
+    onOfflineMaps: () -> Unit,
     onEdit: () -> Unit,
     onRename: () -> Unit,
     onInfo: () -> Unit,
@@ -571,6 +574,8 @@ private fun ViewTopBar(
                         }
                     }
                 }
+                HorizontalDivider()
+                MenuItem("Gérer les cartes hors ligne…", Icons.Rounded.CloudDownload) { layers = false; onOfflineMaps() }
             }
         }
         Box {

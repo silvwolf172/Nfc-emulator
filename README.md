@@ -5,9 +5,11 @@ tirées du fond d'écran) et utilise des surfaces en **verre liquide** qui réag
 gonflent sous le doigt, s'étirent dans la direction du geste, suivent légèrement le doigt puis
 reviennent en rebondissant. Un reflet lumineux suit aussi le doigt.
 
-| Bibliothèque | Édition | Profil altimétrique | Thème sombre |
-|---|---|---|---|
-| ![](docs/screenshots/library_light.jpg) | ![](docs/screenshots/editor.jpg) | ![](docs/screenshots/viewer_profile.jpg) | ![](docs/screenshots/viewer_dark.jpg) |
+| Bibliothèque | Édition | Profil altimétrique |
+|---|---|---|
+| ![](docs/screenshots/library_light.jpg) | ![](docs/screenshots/editor.jpg) | ![](docs/screenshots/viewer_profile.jpg) |
+| **Enregistrement** | **Cartes hors ligne** | **Thème sombre** |
+| ![](docs/screenshots/recording.jpg) | ![](docs/screenshots/offline_maps.jpg) | ![](docs/screenshots/viewer_dark.jpg) |
 
 <sub>Ces captures sont générées automatiquement par les tests (Robolectric). Les tuiles de la carte n'ont
 pas toujours le temps d'arriver pendant le test : on voit alors la grille d'attente à la place.</sub>
@@ -21,7 +23,7 @@ pas toujours le temps d'arriver pendant le test : on voit alors la grille d'atte
   altitudes min/max.
 - Profil altimétrique interactif : en le parcourant du doigt, le point correspondant s'affiche sur la carte.
 - Liste des traces, sections, itinéraires et repères ; fiche détaillée d'un repère.
-- Fonds de carte : Auto, Clair, Nuit, OpenStreetMap, Topographique (OpenTopoMap), CyclOSM.
+- Fonds de carte : Auto, Clair, Nuit, OpenStreetMap, Topographique (OpenTopoMap), CyclOSM, Hors ligne.
 
 **Créer et modifier**
 - Outils : *Tracer* (ajouter des points), *Ajuster* (glisser un point, toucher la ligne pour insérer),
@@ -30,6 +32,25 @@ pas toujours le temps d'arriver pendant le test : on voit alors la grille d'atte
 - Annuler / rétablir, nouvelle section, nouvelle trace, inverser le sens, conversion trace ↔ itinéraire,
   simplification (Douglas-Peucker), ajout automatique des altitudes manquantes.
 - Métadonnées du fichier (nom, description, auteur).
+
+**Enregistrer**
+- Enregistrement de parcours en arrière-plan (écran éteint), avec une notification Pause / Terminer.
+- Localisation combinée de Google (GPS + Wi-Fi + réseau mobile), donc un premier point plus rapide et
+  plus stable. Sans Google Play Services, l'app utilise le GPS du système.
+- Indicateur de signal (précision en mètres, satellites utilisés / visibles), chronomètre, distance,
+  vitesse, altitude, dénivelé en direct.
+- Filtrage des points : positions imprécises ignorées, pas de « bruit » à l'arrêt, sauts aberrants rejetés,
+  une pause crée une nouvelle section.
+- Altitude au-dessus du niveau de la mer sur Android 14+. Avant Android 14, les altitudes sont complétées
+  par le modèle de terrain à la fin de l'enregistrement, si le réseau est disponible.
+- Rien n'est perdu : chaque point est écrit sur disque immédiatement. Après un arrêt brutal,
+  l'enregistrement reprend ou est récupéré dans la bibliothèque.
+
+**Cartes hors ligne**
+- Téléchargement de cartes vectorielles OpenStreetMap par région (catalogue mapsforge.org : monde →
+  continent → pays → région), en arrière-plan avec le gestionnaire de téléchargements d'Android.
+- Rendu sur le téléphone, sans réseau : style « Hors ligne » dans le menu des fonds de carte (version
+  sombre automatique en thème sombre).
 
 **Gérer**
 - Recherche, renommage, duplication, suppression, partage, « Enregistrer sous… » (export GPX 1.1).
@@ -63,6 +84,7 @@ Le workflow GitHub Actions (`.github/workflows/android.yml`) lance les tests et 
 captures d'écran comme artefacts de chaque build.
 
 Minimum : Android 8.0 (API 26). Couleurs dynamiques : Android 12+. Réfraction : Android 13+.
+Altitude GPS corrigée (niveau de la mer) : Android 14+.
 
 ## Services en ligne utilisés (gratuits, sans clé)
 
@@ -71,6 +93,8 @@ Minimum : Android 8.0 (API 26). Couleurs dynamiques : Android 12+. Réfraction :
 | Fonds de carte | [OpenStreetMap](https://www.openstreetmap.org/copyright), [OpenTopoMap](https://opentopomap.org), [CyclOSM](https://www.cyclosm.org) |
 | Suivre les chemins | Serveurs OSRM de [FOSSGIS / routing.openstreetmap.de](https://routing.openstreetmap.de) |
 | Altitudes | [Open-Meteo Elevation API](https://open-meteo.com/en/docs/elevation-api) (Copernicus DEM) |
+| Cartes hors ligne | [download.mapsforge.org](https://download.mapsforge.org) (données OpenStreetMap) |
+| Localisation | Google Play Services (fused location), ou GPS du système |
 
 Ces services ont des conditions d'usage raisonnable. Pour une diffusion à grande échelle, il faudra
 passer par un fournisseur de tuiles et de routage dédié.
@@ -81,11 +105,16 @@ passer par un fournisseur de tuiles et de routage dédié.
   perdues si l'on réenregistre un fichier qui en contient.
 - Déplacer un point efface son altitude : utilisez « Ajouter les altitudes » pour la recalculer.
 - Les exemples sont des tracés calculés sur OpenStreetMap, avec des horaires simulés.
+- Certains constructeurs (Xiaomi, Huawei, Samsung…) ferment agressivement les apps en arrière-plan.
+  Pour un long enregistrement, désactivez l'optimisation de batterie pour Sillage.
+- Le style « Hors ligne » n'affiche que les régions téléchargées.
 
 ## Architecture
 
 ```
 gpx/      modèle, lecture SAX, écriture GPX 1.1, statistiques, opérations d'édition (pures)
 data/     bibliothèque de fichiers, services en ligne
+record/   service d'enregistrement, source de localisation, filtre de points, journal
+offline/  catalogue et téléchargement des cartes hors ligne
 ui/       ViewModel, écrans (bibliothèque, lecture/édition), carte osmdroid, verre liquide, thème
 ```

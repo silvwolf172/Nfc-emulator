@@ -76,7 +76,10 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     implementation(libs.osmdroid)
+    implementation(libs.osmdroid.mapsforge)
     implementation(libs.play.services.location)
+    // Play Services tire une vieille version de Fragment qui casse les retours de permissions.
+    implementation(libs.androidx.fragment)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

@@ -29,6 +29,7 @@ enum class MapStyle(val label: String, val description: String) {
     STANDARD("OpenStreetMap", "Couleurs d'origine"),
     TOPO("Topographique", "Relief et courbes de niveau"),
     CYCLE("CyclOSM", "Pistes cyclables et sentiers"),
+    OFFLINE("Hors ligne", "Cartes téléchargées, sans réseau"),
 }
 
 /** Fonds de carte libres et sans clé d'API. */
@@ -50,6 +51,7 @@ object TileSources {
         MapStyle.AUTO -> if (dark) nightFilter else softFilter
         MapStyle.LIGHT -> softFilter
         MapStyle.DARK -> nightFilter
+        MapStyle.OFFLINE -> if (dark) nightFilter else null
         else -> null
     }
 
@@ -62,6 +64,7 @@ object TileSources {
     fun attribution(style: MapStyle): String = when (style) {
         MapStyle.TOPO -> "© OpenStreetMap · SRTM · © OpenTopoMap"
         MapStyle.CYCLE -> "© OpenStreetMap · CyclOSM"
+        MapStyle.OFFLINE -> "© OpenStreetMap · mapsforge"
         else -> "© OpenStreetMap"
     }
 

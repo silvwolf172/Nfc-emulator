@@ -47,6 +47,7 @@ fun GpxMap(
     selectedWaypoint: Int? = null,
     showMyLocation: Boolean = false,
     followLocation: Boolean = false,
+    offlineFiles: List<java.io.File> = emptyList(),
     listener: GpxOverlay.Listener,
 ) {
     val context = LocalContext.current
@@ -110,7 +111,20 @@ fun GpxMap(
         },
         update = { map ->
             val source = TileSources.forStyle(style)
-            if (map.tileProvider.tileSource.name() != source.name()) map.setTileSource(source)
+            val offline = style == MapStyle.OFFLINE && offlineFiles.isNotEmpty()
+            val providerKey = if (offline) "offline:" + offlineFiles.joinToString { it.name + ":" + it.length() } else "online"
+            if (map.getTag(R.id.map_provider_key) != providerKey) {
+                val wasOffline = (map.getTag(R.id.map_provider_key) as? String)?.startsWith("offline") == true
+                if (offline) {
+                    OfflineRenderer.provider(context, offlineFiles)?.let { map.setTileProvider(it) }
+                } else if (wasOffline) {
+                    map.setTileProvider(org.osmdroid.tileprovider.MapTileProviderBasic(context.applicationContext, source))
+                }
+                map.setTag(R.id.map_provider_key, providerKey)
+                // Le nouveau fournisseur crée un nouveau calque de tuiles : il faut réappliquer le filtre.
+                map.setTag(R.id.map_filter_key, null)
+            }
+            if (!offline && map.tileProvider.tileSource.name() != source.name()) map.setTileSource(source)
             val filterKey = TileSources.filterKey(style, dark)
             if (map.getTag(R.id.map_filter_key) != filterKey) {
                 map.overlayManager.tilesOverlay.setColorFilter(TileSources.filterFor(style, dark))

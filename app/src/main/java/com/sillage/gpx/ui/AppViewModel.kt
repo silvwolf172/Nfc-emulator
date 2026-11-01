@@ -17,6 +17,10 @@ import com.sillage.gpx.gpx.GpxEdit
 import com.sillage.gpx.gpx.GpxPoint
 import com.sillage.gpx.gpx.LineRef
 import com.sillage.gpx.gpx.PointRef
+import com.sillage.gpx.offline.CatalogEntry
+import com.sillage.gpx.offline.InstalledMap
+import com.sillage.gpx.offline.MapDownload
+import com.sillage.gpx.offline.OfflineMaps
 import com.sillage.gpx.record.RecordingEvent
 import com.sillage.gpx.record.RecordingService
 import com.sillage.gpx.record.RecordingState
@@ -38,6 +42,7 @@ sealed interface Screen {
     data object Library : Screen
     data class Viewer(val id: String) : Screen
     data object Recording : Screen
+    data object OfflineMaps : Screen
 }
 
 sealed interface UiEvent {
@@ -101,6 +106,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refresh()
+        refreshOffline()
         viewModelScope.launch {
             RecordingState.events.collect { e ->
                 when (e) {
@@ -123,6 +129,76 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 message("Un enregistrement interrompu a été récupéré")
             }
         }
+    }
+
+    // ------------------------------------------------------------------ Cartes hors ligne
+
+    var offlineMaps by mutableStateOf<List<InstalledMap>>(emptyList()); private set
+    var offlineDownloads by mutableStateOf<List<MapDownload>>(emptyList()); private set
+    var catalogPath by mutableStateOf(""); private set
+    var catalog by mutableStateOf<List<CatalogEntry>?>(null); private set
+    var catalogError by mutableStateOf<String?>(null); private set
+    private var offlineReturn: Screen = Screen.Library
+    private var catalogJob: Job? = null
+
+    val offlineFiles: List<java.io.File> get() = offlineMaps.map { it.file }
+
+    fun refreshOffline() {
+        val app = getApplication<Application>()
+        viewModelScope.launch {
+            val (installed, downloads) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                OfflineMaps.installed(app) to OfflineMaps.downloads(app)
+            }
+            val finished = offlineDownloads.filter { d -> downloads.none { it.id == d.id } && installed.any { it.file.name == d.fileName } }
+            offlineMaps = installed
+            offlineDownloads = downloads.filter { it.status != android.app.DownloadManager.STATUS_SUCCESSFUL }
+            finished.forEach { message("Carte « ${it.label} » prête hors ligne") }
+        }
+    }
+
+    fun openOfflineMaps() {
+        if (screen != Screen.OfflineMaps) offlineReturn = screen
+        screen = Screen.OfflineMaps
+        refreshOffline()
+        if (catalog == null) browse(catalogPath)
+    }
+
+    fun leaveOfflineMaps() {
+        screen = offlineReturn.takeIf { it !is Screen.Viewer || doc != null } ?: Screen.Library
+    }
+
+    fun browse(path: String) {
+        catalogPath = path
+        catalog = null
+        catalogError = null
+        catalogJob?.cancel()
+        catalogJob = viewModelScope.launch {
+            try {
+                val list = OfflineMaps.catalog(path)
+                if (catalogPath == path) catalog = list
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e // navigation plus rapide que le réseau : ce n'est pas une erreur
+            } catch (e: Exception) {
+                if (catalogPath == path) catalogError = e.message ?: "Catalogue indisponible"
+            }
+        }
+    }
+
+    fun downloadMap(entry: CatalogEntry) {
+        runCatching { OfflineMaps.download(getApplication(), entry) }
+            .onSuccess { message("Téléchargement de « ${entry.label} » lancé") }
+            .onFailure { message("Téléchargement impossible : ${it.message}") }
+        refreshOffline()
+    }
+
+    fun cancelDownload(d: MapDownload) {
+        OfflineMaps.cancel(getApplication(), d)
+        refreshOffline()
+    }
+
+    fun deleteMap(m: InstalledMap) {
+        OfflineMaps.delete(m)
+        refreshOffline()
     }
 
     // ------------------------------------------------------------------ Enregistrement
@@ -305,6 +381,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun changeMapStyle(style: MapStyle) {
+        if (style == MapStyle.OFFLINE && offlineMaps.isEmpty()) {
+            message("Aucune carte hors ligne : téléchargez d'abord une région")
+            openOfflineMaps()
+        }
         mapStyle = style
         prefs.edit().putString("mapStyle", style.name).apply()
     }

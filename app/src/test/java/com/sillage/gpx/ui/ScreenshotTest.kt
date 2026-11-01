@@ -146,6 +146,37 @@ class ScreenshotTest {
         com.sillage.gpx.record.RecordingState.update { com.sillage.gpx.record.RecordingSnapshot() }
     }
 
+    @Test
+    fun offline_maps() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val mapFile = File("build/test-maps/monaco.map")
+        org.junit.Assume.assumeTrue(mapFile.exists())
+        mapFile.copyTo(File(com.sillage.gpx.offline.OfflineMaps.dir(app), "monaco.map"), overwrite = true)
+        val vm = vmWithSamples()
+        compose.setContent { SillageTheme(darkTheme = false, dynamicColor = false) { App(vm) } }
+        compose.runOnUiThread { vm.openOfflineMaps(); vm.browse("europe/france/") }
+        repeat(40) { compose.mainClock.advanceTimeBy(200); compose.waitForIdle(); Thread.sleep(100) }
+        shoot("offline_maps")
+
+        // Une balade dans Monaco, affichée avec la carte hors ligne.
+        val doc = com.sillage.gpx.gpx.GpxDocument(
+            metadata = com.sillage.gpx.gpx.GpxMetadata(name = "Tour du port de Monaco"),
+            tracks = listOf(com.sillage.gpx.gpx.GpxTrack(name = "Port", segments = listOf(com.sillage.gpx.gpx.GpxSegment(listOf(
+                com.sillage.gpx.gpx.GpxPoint(43.7365, 7.4180), com.sillage.gpx.gpx.GpxPoint(43.7347, 7.4213),
+                com.sillage.gpx.gpx.GpxPoint(43.7357, 7.4250), com.sillage.gpx.gpx.GpxPoint(43.7385, 7.4262),
+                com.sillage.gpx.gpx.GpxPoint(43.7400, 7.4285), com.sillage.gpx.gpx.GpxPoint(43.7420, 7.4268),
+            ))))),
+        )
+        compose.runOnUiThread {
+            vm.changeMapStyle(com.sillage.gpx.ui.map.MapStyle.OFFLINE)
+            vm.showLoaded("monaco-test.gpx", doc)
+        }
+        // Le rendu vectoriel se fait en tâche de fond : on lui laisse le temps.
+        repeat(120) { compose.mainClock.advanceTimeBy(100); compose.waitForIdle(); Thread.sleep(100) }
+        shoot("viewer_offline")
+        compose.runOnUiThread { vm.changeMapStyle(com.sillage.gpx.ui.map.MapStyle.AUTO) }
+    }
+
     @androidx.compose.runtime.Composable
     private fun App(vm: AppViewModel) {
         SillageApp(

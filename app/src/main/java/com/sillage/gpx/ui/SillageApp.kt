@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.sillage.gpx.ui.library.LibraryScreen
+import com.sillage.gpx.ui.offline.OfflineMapsScreen
 import com.sillage.gpx.ui.record.RecordingScreen
 import com.sillage.gpx.ui.viewer.ViewerScreen
 
@@ -54,6 +55,7 @@ fun SillageApp(
                 Screen.Library -> 0
                 is Screen.Viewer -> 1
                 Screen.Recording -> 2
+                Screen.OfflineMaps -> 3
             },
             transitionSpec = {
                 if (targetState > initialState) {
@@ -69,6 +71,7 @@ fun SillageApp(
             when (target) {
                 1 -> ViewerScreen(vm, onExport, hasLocationPermission, requestLocation)
                 2 -> RecordingScreen(vm)
+                3 -> OfflineMapsScreen(vm)
                 else -> LibraryScreen(vm, onImport, onExport, onRecord)
             }
         }

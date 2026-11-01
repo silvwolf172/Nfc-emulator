@@ -120,6 +120,7 @@ fun RecordingScreen(vm: AppViewModel) {
             doc = doc,
             controller = map,
             style = vm.mapStyle,
+            offlineFiles = vm.offlineFiles,
             modifier = Modifier.fillMaxSize().glassSource(backdrop),
             showMyLocation = true,
             followLocation = true,

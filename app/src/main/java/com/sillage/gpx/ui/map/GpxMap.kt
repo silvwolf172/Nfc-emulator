@@ -26,7 +26,6 @@ import com.sillage.gpx.ui.theme.trackPalette
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
 /** Paramètres d'édition transmis à l'overlay. */
@@ -47,6 +46,7 @@ fun GpxMap(
     highlight: GpxPoint? = null,
     selectedWaypoint: Int? = null,
     showMyLocation: Boolean = false,
+    followLocation: Boolean = false,
     listener: GpxOverlay.Listener,
 ) {
     val context = LocalContext.current
@@ -134,12 +134,13 @@ fun GpxMap(
 
             val existing = locationHolder[0]
             if (showMyLocation && existing == null) {
-                val loc = MyLocationNewOverlay(GpsMyLocationProvider(context), map).apply {
+                val loc = MyLocationNewOverlay(FusedMyLocationProvider(context), map).apply {
                     val (person, arrow) = locationIcons(density, cs.primary.toArgb())
                     setDirectionArrow(person, arrow)
                     setPersonAnchor(0.5f, 0.5f)
                     setDirectionAnchor(0.5f, 0.5f)
                     enableMyLocation()
+                    if (followLocation) enableFollowLocation()
                 }
                 map.overlays.add(0, loc)
                 locationHolder[0] = loc
@@ -169,6 +170,14 @@ fun GpxMap(
             controller.detach()
         }
     }
+}
+
+/** Recentre la carte sur la position et la suit (jusqu'à ce que l'utilisateur déplace la carte). */
+fun MapController.followMyLocation(zoom: Double? = null) {
+    val v = mapView ?: return
+    val loc = v.overlays.filterIsInstance<MyLocationNewOverlay>().firstOrNull() ?: return
+    zoom?.let { if (v.zoomLevelDouble < it) v.controller.setZoom(it) }
+    loc.enableFollowLocation()
 }
 
 /** Position actuelle si la localisation est active. */

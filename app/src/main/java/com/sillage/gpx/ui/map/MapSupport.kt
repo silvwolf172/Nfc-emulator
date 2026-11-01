@@ -185,6 +185,15 @@ class MapController {
         v.controller.animateTo(v.mapCenter, v.zoomLevelDouble + delta, 300L)
     }
 
+    /** Décale le centre de la carte (ex. pour que « ma position » reste au-dessus d'un panneau). */
+    fun setCenterOffset(dx: Int, dy: Int) {
+        val v = mapView ?: return
+        if (v.mapCenterOffsetX != dx || v.mapCenterOffsetY != dy) {
+            v.setMapCenterOffset(dx, dy)
+            v.invalidate()
+        }
+    }
+
     val zoom: Double get() = mapView?.zoomLevelDouble ?: 0.0
 
     companion object {

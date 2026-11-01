@@ -34,7 +34,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -61,7 +63,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,7 +81,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sillage.gpx.data.GpxEntry
+import com.sillage.gpx.record.RecordingSnapshot
+import com.sillage.gpx.record.RecordingState
+import com.sillage.gpx.record.RecordingStatus
+import com.sillage.gpx.ui.record.RecordingDot
+import kotlinx.coroutines.delay
 import com.sillage.gpx.ui.AppViewModel
 import com.sillage.gpx.ui.components.ConfirmDialog
 import com.sillage.gpx.ui.components.LiquidBackground
@@ -98,8 +108,10 @@ fun LibraryScreen(
     vm: AppViewModel,
     onImport: () -> Unit,
     onExport: (String) -> Unit,
+    onRecord: () -> Unit,
 ) {
     val backdrop = rememberGlassBackdrop()
+    val recording by RecordingState.state.collectAsStateWithLifecycle()
     var touch by remember { mutableStateOf<Offset?>(null) }
     var fabOpen by rememberSaveable { mutableStateOf(false) }
     var showCreate by rememberSaveable { mutableStateOf(false) }
@@ -134,6 +146,9 @@ fun LibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item(key = "header") { Header(vm) }
+                if (recording.isActive) {
+                    item(key = "recording") { RecordingBanner(recording, onClick = vm::openRecording) }
+                }
                 item(key = "search") {
                     SearchField(vm.query, { vm.query = it })
                     Spacer(Modifier.height(4.dp))
@@ -173,6 +188,7 @@ fun LibraryScreen(
                 onImport = { fabOpen = false; onImport() },
                 onCreate = { fabOpen = false; showCreate = true },
                 onSample = { fabOpen = false; vm.loadSample() },
+                onRecord = { fabOpen = false; if (recording.isActive) vm.openRecording() else onRecord() },
                 modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(20.dp),
             )
         }
@@ -208,6 +224,37 @@ fun LibraryScreen(
             onConfirm = { deleteId = null; vm.delete(id) },
             onDismiss = { deleteId = null },
         )
+    }
+}
+
+@Composable
+private fun RecordingBanner(rec: RecordingSnapshot, onClick: () -> Unit) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1_000) } }
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 28.dp,
+        style = GlassDefaults.tinted(MaterialTheme.colorScheme.errorContainer, 0.7f),
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        onClick = onClick,
+        pressedScale = 1.04f,
+        semanticLabel = "Ouvrir l'enregistrement en cours",
+    ) {
+        Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            RecordingDot(rec.status, 14.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (rec.status == RecordingStatus.PAUSED) "Enregistrement en pause" else "Enregistrement en cours",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    Format.distance(rec.distanceM) + " · " + Format.duration(rec.elapsedMs(now)),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null)
+        }
     }
 }
 
@@ -401,6 +448,7 @@ private fun FabMenu(
     onImport: () -> Unit,
     onCreate: () -> Unit,
     onSample: () -> Unit,
+    onRecord: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val rotation by animateFloatAsState(if (open) 135f else 0f, spring(dampingRatio = 0.5f, stiffness = 300f), label = "fab")
@@ -409,6 +457,7 @@ private fun FabMenu(
             Triple("Exemples", Icons.Rounded.Explore, onSample),
             Triple("Nouvelle trace", Icons.Rounded.Draw, onCreate),
             Triple("Importer un GPX", Icons.Rounded.FileOpen, onImport),
+            Triple("Enregistrer un parcours", Icons.Rounded.FiberManualRecord, onRecord),
         )
         items.forEachIndexed { i, (label, icon, action) ->
             AnimatedVisibility(

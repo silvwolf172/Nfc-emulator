@@ -17,6 +17,9 @@ import com.sillage.gpx.gpx.GpxEdit
 import com.sillage.gpx.gpx.GpxPoint
 import com.sillage.gpx.gpx.LineRef
 import com.sillage.gpx.gpx.PointRef
+import com.sillage.gpx.record.RecordingEvent
+import com.sillage.gpx.record.RecordingService
+import com.sillage.gpx.record.RecordingState
 import com.sillage.gpx.ui.map.GpxOverlay
 import com.sillage.gpx.ui.map.MapStyle
 import kotlinx.coroutines.Job
@@ -34,6 +37,7 @@ enum class EditTool(val label: String, val hint: String) {
 sealed interface Screen {
     data object Library : Screen
     data class Viewer(val id: String) : Screen
+    data object Recording : Screen
 }
 
 sealed interface UiEvent {
@@ -95,7 +99,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Fichier à ouvrir en mode édition dès son chargement (nouvelle trace). */
     private var editOnOpen = false
 
-    init { refresh() }
+    init {
+        refresh()
+        viewModelScope.launch {
+            RecordingState.events.collect { e ->
+                when (e) {
+                    is RecordingEvent.Saved -> {
+                        refresh()
+                        open(e.id)
+                        message("Parcours enregistré")
+                    }
+                    is RecordingEvent.Message -> {
+                        if (screen == Screen.Recording) screen = Screen.Library
+                        message(e.text)
+                    }
+                }
+            }
+        }
+        // Un enregistrement interrompu par le système est sauvé plutôt que perdu.
+        viewModelScope.launch {
+            runCatching { RecordingService.recoverInterrupted(getApplication()) }.getOrNull()?.let {
+                refresh()
+                message("Un enregistrement interrompu a été récupéré")
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ Enregistrement
+
+    fun startRecording() {
+        viewModelScope.launch {
+            runCatching { RecordingService.recoverInterrupted(getApplication()) }.getOrNull()?.let { refresh() }
+            RecordingService.send(getApplication(), RecordingService.ACTION_START)
+            screen = Screen.Recording
+        }
+    }
+
+    fun openRecording() {
+        if (RecordingState.state.value.isActive) screen = Screen.Recording
+    }
+
+    fun leaveRecording() { screen = Screen.Library }
+
+    fun pauseRecording() = RecordingService.send(getApplication(), RecordingService.ACTION_PAUSE)
+
+    fun resumeRecording() = RecordingService.send(getApplication(), RecordingService.ACTION_RESUME)
+
+    fun stopRecording(save: Boolean) =
+        RecordingService.send(getApplication(), if (save) RecordingService.ACTION_STOP else RecordingService.ACTION_DISCARD)
 
     fun refresh() {
         viewModelScope.launch {

@@ -110,6 +110,42 @@ class ScreenshotTest {
         shoot("viewer_dark")
     }
 
+    /** Simule un enregistrement en cours à partir de l'exemple de randonnée (sans GPS). */
+    private fun fakeRecording(vm: AppViewModel) {
+        val hikeId = runBlocking { vm.repo.list() }.first { it.name.contains("Chamonix") }.id
+        val pts = runBlocking { vm.repo.load(hikeId) }.tracks[0].segments[0].points.take(420)
+        val last = pts.last()
+        val now = System.currentTimeMillis()
+        com.sillage.gpx.record.RecordingState.update {
+            com.sillage.gpx.record.RecordingSnapshot(
+                status = com.sillage.gpx.record.RecordingStatus.RECORDING,
+                name = "Parcours du jour",
+                startTime = now - 5_400_000,
+                segments = listOf(pts),
+                distanceM = com.sillage.gpx.gpx.Geo.length(pts),
+                accumulatedMs = 5_000_000,
+                activeSince = now - 125_000,
+                lastFix = com.sillage.gpx.record.Fix(last.lat, last.lon, 4f, 1.1f, last.ele, now),
+                satellitesUsed = 14,
+                satellitesVisible = 27,
+            )
+        }
+    }
+
+    @Test
+    fun recording() {
+        val vm = vmWithSamples()
+        fakeRecording(vm)
+        compose.setContent { SillageTheme(darkTheme = false, dynamicColor = false) { App(vm) } }
+        compose.waitUntil(10_000) { vm.entries.isNotEmpty() }
+        repeat(5) { compose.waitForIdle(); Thread.sleep(50) }
+        shoot("library_recording_banner")
+        compose.runOnUiThread { vm.openRecording() }
+        repeat(30) { compose.mainClock.advanceTimeBy(200); compose.waitForIdle(); Thread.sleep(100) }
+        shoot("recording")
+        com.sillage.gpx.record.RecordingState.update { com.sillage.gpx.record.RecordingSnapshot() }
+    }
+
     @androidx.compose.runtime.Composable
     private fun App(vm: AppViewModel) {
         SillageApp(
@@ -117,6 +153,7 @@ class ScreenshotTest {
             onImport = {},
             onExport = {},
             onShare = { _, _ -> },
+            onRecord = {},
             hasLocationPermission = { false },
             requestLocation = {},
         )

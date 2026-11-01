@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.sillage.gpx.ui.library.LibraryScreen
+import com.sillage.gpx.ui.record.RecordingScreen
 import com.sillage.gpx.ui.viewer.ViewerScreen
 
 @Composable
@@ -32,6 +33,7 @@ fun SillageApp(
     onImport: () -> Unit,
     onExport: (String) -> Unit,
     onShare: (Uri, String) -> Unit,
+    onRecord: () -> Unit,
     hasLocationPermission: () -> Boolean,
     requestLocation: (onGranted: () -> Unit) -> Unit,
 ) {
@@ -48,9 +50,13 @@ fun SillageApp(
 
     Box(Modifier.fillMaxSize()) {
         AnimatedContent(
-            targetState = vm.screen is Screen.Viewer,
+            targetState = when (vm.screen) {
+                Screen.Library -> 0
+                is Screen.Viewer -> 1
+                Screen.Recording -> 2
+            },
             transitionSpec = {
-                if (targetState) {
+                if (targetState > initialState) {
                     (fadeIn() + scaleIn(spring(dampingRatio = 0.75f, stiffness = 320f), initialScale = 0.92f))
                         .togetherWith(fadeOut() + scaleOut(targetScale = 1.04f))
                 } else {
@@ -59,11 +65,11 @@ fun SillageApp(
                 }
             },
             label = "screen",
-        ) { viewer ->
-            if (viewer) {
-                ViewerScreen(vm, onExport, hasLocationPermission, requestLocation)
-            } else {
-                LibraryScreen(vm, onImport, onExport)
+        ) { target ->
+            when (target) {
+                1 -> ViewerScreen(vm, onExport, hasLocationPermission, requestLocation)
+                2 -> RecordingScreen(vm)
+                else -> LibraryScreen(vm, onImport, onExport, onRecord)
             }
         }
         SnackbarHost(

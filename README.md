@@ -14,6 +14,14 @@ reviennent en rebondissant. Un reflet lumineux suit aussi le doigt.
 <sub>Ces captures sont générées automatiquement par les tests (Robolectric). Les tuiles de la carte n'ont
 pas toujours le temps d'arriver pendant le test : on voit alors la grille d'attente à la place.</sub>
 
+## Télécharger
+
+Chaque compilation publie un APK dans les [Releases](../../releases).
+La dernière version est toujours à cette adresse : [Sillage.apk](../../releases/latest/download/Sillage.apk).
+
+Ouvrez le fichier sur le téléphone pour l'installer. Si une clé de signature est configurée (voir
+« Compiler »), les versions suivantes s'installent par-dessus, sans perdre vos traces.
+
 ## Fonctionnalités
 
 **Lire**
@@ -76,12 +84,17 @@ Prérequis : JDK 17+ et le SDK Android (API 36).
 
 ```bash
 ./gradlew :app:assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
-./gradlew :app:assembleRelease      # APK minifié, signé avec la clé de debug
+./gradlew :app:assembleRelease      # APK minifié
 ./gradlew :app:testDebugUnitTest    # tests GPX + captures d'écran dans app/build/screenshots
 ```
 
-Le workflow GitHub Actions (`.github/workflows/android.yml`) lance les tests et publie les APK et les
-captures d'écran comme artefacts de chaque build.
+Le workflow GitHub Actions (`.github/workflows/android.yml`) lance les tests, compile, puis crée une
+release `v1.0.<numéro de build>` avec `Sillage.apk`. Les captures d'écran sont jointes au build.
+
+**Signature.** Pour que chaque version s'installe par-dessus la précédente, toutes doivent être signées
+avec la même clé. Ajoutez-la dans *Settings → Secrets and variables → Actions* du dépôt :
+`SILLAGE_KEYSTORE_BASE64` (le fichier `.jks` encodé en base64), `SILLAGE_KEYSTORE_PASSWORD`,
+`SILLAGE_KEY_ALIAS` et `SILLAGE_KEY_PASSWORD`. Sans ces secrets, la CI signe avec une clé temporaire.
 
 Minimum : Android 8.0 (API 26). Couleurs dynamiques : Android 12+. Réfraction : Android 13+.
 Altitude GPS corrigée (niveau de la mer) : Android 14+.

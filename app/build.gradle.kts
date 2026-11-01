@@ -12,18 +12,37 @@ android {
         applicationId = "com.sillage.gpx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // Sur GitHub Actions, chaque build a un numéro croissant : les mises à jour s'installent par-dessus.
+        val build = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = build
+        versionName = "1.0.$build"
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        // Clé de signature stable fournie par l'environnement (secrets GitHub en CI) : indispensable pour que
+        // chaque nouvelle version s'installe par-dessus la précédente. Sans elle, clé de debug locale.
+        val keystore = System.getenv("SILLAGE_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.exists() }
+        if (keystore != null) {
+            create("sillage") {
+                storeFile = keystore
+                storePassword = System.getenv("SILLAGE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SILLAGE_KEY_ALIAS")
+                keyPassword = System.getenv("SILLAGE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
+        val signing = signingConfigs.findByName("sillage") ?: signingConfigs.getByName("debug")
+        debug {
+            signingConfig = signing
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so the CI-built APK can be installed directly.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signing
         }
     }
 
